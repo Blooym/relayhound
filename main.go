@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,6 +34,9 @@ func main() {
 	// Flags & Config.
 	var hosts []string
 	flag.Func("hosts", "The WebSocket URL (including protocol) to connect to (repeatable).", func(s string) error {
+		if slices.Contains(hosts, s) {
+			return nil
+		}
 		hosts = append(hosts, s)
 		return nil
 	})
