@@ -103,6 +103,7 @@ func main() {
 			}
 		}
 	}()
+	defer time.Sleep(time.Duration(50 * time.Millisecond)) // Hold for last update
 	updateChan <- struct{}{}
 
 	// Begin connections to each relay.
