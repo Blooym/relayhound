@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/gosuri/uilive"
@@ -29,23 +30,24 @@ type HostStatus struct {
 }
 
 func main() {
-	// Init
+	// Flags & Config.
 	var hosts []string
-	flag.Func("hosts", "WebSocket URL(s) to monitor for the target data", func(s string) error {
+	flag.Func("hosts", "The WebSocket URL (including protocol) to connect to (repeatable).", func(s string) error {
 		hosts = append(hosts, s)
 		return nil
 	})
-	targetFlag := flag.String("target", "", "Target data to search for")
+	target := flag.String("target", "", "The target data to search for in received messages.")
+	timeout := flag.Duration("timeout", time.Duration(1*time.Hour), "The amount of time to keep connections open before closing them automatically.")
 	flag.Parse()
 	if len(hosts) == 0 {
 		log.Fatal("--hosts is required")
 	}
-	if *targetFlag == "" {
+	if *target == "" {
 		log.Fatal("--target is required")
 	}
-	target := *targetFlag
 	fmt.Printf("Configured hosts: %v\n", hosts)
-	fmt.Printf("Target data: %v\n", target)
+	fmt.Printf("Target data: %v\n", *target)
+	fmt.Printf("Timeout: %v\n", *timeout)
 	fmt.Println()
 
 	// Initialize status tracking
@@ -62,7 +64,7 @@ func main() {
 	var statusMtx sync.Mutex
 	updateChan := make(chan struct{}, 1)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
 	// Handle shutdown signal
@@ -105,7 +107,7 @@ func main() {
 		wg.Add(1)
 		go func(wsURL string, index int) {
 			defer wg.Done()
-			result := listenWebSocket(ctx, wsURL, target)
+			result := listenWebSocket(ctx, wsURL, *target)
 
 			statusMtx.Lock()
 			statuses[index].Status = result
