@@ -29,6 +29,7 @@ const (
 type HostStatus struct {
 	URL    string
 	Status Status
+	Error  error
 }
 
 func main() {
@@ -98,7 +99,7 @@ func main() {
 					case Status(NotFound):
 						text = fmt.Sprintf("❌  %s\n", status.URL)
 					case Status(Error):
-						text = fmt.Sprintf("⚠️   %s [Error]\n", status.URL)
+						text = fmt.Sprintf("⚠️   %s (Err: %s)\n", status.URL, status.Error)
 					}
 					fmt.Fprint(writer, text)
 				}
@@ -114,10 +115,13 @@ func main() {
 		wg.Add(1)
 		go func(wsURL string, index int) {
 			defer wg.Done()
-			result := listenWebSocket(ctx, wsURL, *target)
+			result, err := listenWebSocket(ctx, wsURL, *target)
 
 			statusMtx.Lock()
 			statuses[index].Status = result
+			if err != nil {
+				statuses[index].Error = err
+			}
 			statusMtx.Unlock()
 
 			select {
@@ -129,11 +133,11 @@ func main() {
 	wg.Wait()
 }
 
-func listenWebSocket(ctx context.Context, wsURL string, target string) Status {
+func listenWebSocket(ctx context.Context, wsURL string, target string) (Status, error) {
 	fullURL := wsURL + "/xrpc/com.atproto.sync.subscribeRepos"
 	conn, _, err := websocket.DefaultDialer.Dial(fullURL, nil)
 	if err != nil {
-		return Status(Error)
+		return Status(Error), err
 	}
 	defer conn.Close()
 
@@ -145,15 +149,16 @@ func listenWebSocket(ctx context.Context, wsURL string, target string) Status {
 	for {
 		select {
 		case <-ctx.Done():
-			return Status(NotFound)
+			return Status(NotFound), nil
 		default:
 			_, message, err := conn.ReadMessage()
 			if err != nil {
-				return Status(Error)
+				return Status(Error), err
 			}
+
 			messageStr := string(message)
 			if strings.Contains(messageStr, target) {
-				return Status(Found)
+				return Status(Found), nil
 			}
 		}
 	}
