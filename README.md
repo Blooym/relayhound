@@ -1,6 +1,6 @@
 # relayhound
 
-A simple tool to test the fanout of target event data across multiple concurrent ATProto relay connections.
+A simple tool to test the fanout of target event data across multiple concurrent ATProto PDS or Relay connections via the `/xrpc/com.atproto.sync.subscribeRepos` endpoint.
 
 ## Installation
 
