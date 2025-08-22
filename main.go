@@ -20,9 +20,10 @@ import (
 type Status int64
 
 const (
-	NoData          int = 0
-	Found           int = 1
-	ConnectionError int = 2
+	Searching int = 0
+	Found     int = 1
+	Error     int = 2
+	NotFound  int = 3
 )
 
 type HostStatus struct {
@@ -49,8 +50,8 @@ func main() {
 	if *target == "" {
 		log.Fatal("--target is required")
 	}
-	fmt.Printf("Configured hosts: %v\n", hosts)
-	fmt.Printf("Target data: %v\n", *target)
+	fmt.Printf("Hosts: %v\n", hosts)
+	fmt.Printf("Target: %v\n", *target)
 	fmt.Printf("Timeout: %v\n", *timeout)
 	fmt.Println()
 
@@ -59,7 +60,7 @@ func main() {
 	for i, host := range hosts {
 		statuses[i] = &HostStatus{
 			URL:    host,
-			Status: Status(NoData),
+			Status: Status(Searching),
 		}
 	}
 	writer := uilive.New()
@@ -88,22 +89,23 @@ func main() {
 			case <-updateChan:
 				statusMtx.Lock()
 				for _, status := range statuses {
-					var icon string
+					var text string
 					switch status.Status {
+					case Status(Searching):
+						text = fmt.Sprintf("❌  %s\n", status.URL)
 					case Status(Found):
-						icon = "FOUND:"
-					case Status(NoData):
-						icon = "NO_DATA:"
-					case Status(ConnectionError):
-						icon = "CONN_ERR:"
+						text = fmt.Sprintf("✅  %s\n", status.URL)
+					case Status(NotFound):
+						text = fmt.Sprintf("❌  %s\n", status.URL)
+					case Status(Error):
+						text = fmt.Sprintf("⚠️   %s [Error]\n", status.URL)
 					}
-					fmt.Fprintf(writer, "%s %s\n", icon, status.URL)
+					fmt.Fprint(writer, text)
 				}
 				statusMtx.Unlock()
 			}
 		}
 	}()
-	defer time.Sleep(time.Duration(50 * time.Millisecond)) // Hold for last update
 	updateChan <- struct{}{}
 
 	// Begin connections to each relay.
@@ -131,7 +133,7 @@ func listenWebSocket(ctx context.Context, wsURL string, target string) Status {
 	fullURL := wsURL + "/xrpc/com.atproto.sync.subscribeRepos"
 	conn, _, err := websocket.DefaultDialer.Dial(fullURL, nil)
 	if err != nil {
-		return Status(ConnectionError)
+		return Status(Error)
 	}
 	defer conn.Close()
 
@@ -143,11 +145,11 @@ func listenWebSocket(ctx context.Context, wsURL string, target string) Status {
 	for {
 		select {
 		case <-ctx.Done():
-			return Status(NoData)
+			return Status(NotFound)
 		default:
 			_, message, err := conn.ReadMessage()
 			if err != nil {
-				return Status(ConnectionError)
+				return Status(Error)
 			}
 			messageStr := string(message)
 			if strings.Contains(messageStr, target) {
