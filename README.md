@@ -2,6 +2,8 @@
 
 A simple tool to test the fanout of target event data across multiple concurrent ATProto PDS or Relay connections via the `/xrpc/com.atproto.sync.subscribeRepos` endpoint.
 
+Please be aware that this tool may use a large amount of bandwidth. You should run this on a machine with a decent and unmetered internet connection
+
 ## Installation
 
 ```
