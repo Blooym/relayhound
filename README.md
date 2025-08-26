@@ -19,3 +19,5 @@ Relayhound has 3 flags
 ```
 relayhound --hosts wss://<HOST_1> --hosts ws://<HOST_2> --target TARGET_DATA_STRING
 ```
+
+The ❌ symbols will turn to ✅ once an event containing the target is received.
