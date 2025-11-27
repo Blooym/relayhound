@@ -21,9 +21,9 @@ type Status int64
 
 const (
 	Searching int = 0
-	Found     int = 1
-	Error     int = 2
-	NotFound  int = 3
+	NotFound  int = 1
+	Found     int = 2
+	Error     int = 3
 )
 
 type HostStatus struct {
